@@ -1,3 +1,9 @@
+import module from "./modulebundle/module.json" with { type: "json" };
+import css from "./modulebundle/module.css" with { type: "css" };
+
+document.adoptedStyleSheets.push(css);
+document.querySelector('a').textContent = module.title;
+
 // Use Case 1
 
 const activeUsers = new Set(['tgk', 'user2', 'user3']);
