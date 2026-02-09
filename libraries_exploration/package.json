@@ -1,0 +1,15 @@
+{
+  "name": "libraries_exploration",
+  "version": "1.0.0",
+  "main": "html.js",
+  "scripts": {
+    "start": "node html.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "typetify": "^4.1.0"
+  }
+}
