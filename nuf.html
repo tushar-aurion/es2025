@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>JustEnough.js</title>
+<style>
+  body {
+    background: #000;
+    color: #00ff9c;
+    font-family: monospace;
+    display: flex;
+    justify-content: center;
+    margin-top: 40px
+  }
+
+  .app {
+    padding: 15px;
+    border: 1px solid #00ff9c;
+    width: 340px;
+    box-shadow: 0 0 10px #00ff9c
+  }
+
+  button {
+    background: #000;
+    color: #00ff9c;
+    border: 1px solid #00ff9c;
+    margin: 5px 5px 0 0;
+    padding: 5px 10px;
+    cursor: pointer
+  }
+
+  textarea {
+    margin-top: 10px;
+    width: 100%;
+    height: 120px;
+    background: #000;
+    color: #00ff9c;
+    border: 1px solid #00ff9c
+  }
+
+  .app::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(transparent, transparent 2px, rgba(0, 255, 156, .05) 3px);
+    pointer-events: none
+  }
+</style>
+</head>
+
+<body>
+<script>
+/* ---------- DOM Core ---------- */
+
+function h(type, props, ...children) {
+  return {
+    type,
+    props: props || {},
+    children: children.flat().map(c =>
+      typeof c === 'string'
+        ? { type: 'TEXT', props: { value: c }, children: [] }
+        : c
+    )
+  };
+}
+
+function render(vnode) {
+  if (vnode.type === 'TEXT') {
+    return document.createTextNode(vnode.props.value);
+  }
+
+  const el = document.createElement(vnode.type);
+  setProps(el, {}, vnode.props);
+
+  vnode.children.forEach(child => {
+    el.appendChild(render(child));
+  });
+
+  el._props = vnode.props;
+  return el;
+}
+
+function setProps(el, oldProps, newProps) {
+  // Remove old
+  for (let key in oldProps) {
+    if (!(key in newProps)) {
+      el.removeAttribute(key);
+    }
+  }
+
+  // Add / update new
+  for (let key in newProps) {
+    if (oldProps[key] !== newProps[key]) {
+      if (key.startsWith('on')) {
+        el.addEventListener(key.slice(2).toLowerCase(), newProps[key]);
+      } else {
+        el.setAttribute(key, newProps[key]);
+      }
+    }
+  }
+
+  el._props = { ...oldProps, ...newProps };
+}
+
+/* ---------- SIMPLE DIFF (Readable) ---------- */
+
+function diff(oldNode, newNode) {
+  // Case 1: create
+  if (!oldNode) return { type: 'CREATE', newNode };
+
+  // Case 2: remove
+  if (!newNode) return { type: 'REMOVE' };
+
+  // Case 3: replace
+  if (oldNode.type !== newNode.type) {
+    return { type: 'REPLACE', newNode };
+  }
+
+  // Case 4: text update
+  if (newNode.type === 'TEXT') {
+    if (oldNode.props.value !== newNode.props.value) {
+      return { type: 'TEXT', value: newNode.props.value };
+    }
+    return null;
+  }
+
+  // Case 5: update element
+  return {
+    type: 'UPDATE',
+    props: diffProps(oldNode.props, newNode.props),
+    children: diffChildren(oldNode.children, newNode.children)
+  };
+}
+
+function diffProps(oldProps, newProps) {
+  const changes = {};
+
+  for (let key in { ...oldProps, ...newProps }) {
+    if (oldProps[key] !== newProps[key]) {
+      changes[key] = newProps[key];
+    }
+  }
+
+  return Object.keys(changes).length ? changes : null;
+}
+
+function diffChildren(oldChildren, newChildren) {
+  const patches = [];
+  const max = Math.max(oldChildren.length, newChildren.length);
+
+  for (let i = 0; i < max; i++) {
+    patches[i] = diff(oldChildren[i], newChildren[i]);
+  }
+
+  return patches;
+}
+
+/* ---------- PATCH ---------- */
+
+function patch(domNode, patchObj) {
+  if (!patchObj) return;
+
+  if (patchObj.type === 'CREATE') {
+    return domNode.appendChild(render(patchObj.newNode));
+  }
+
+  if (!domNode) return;
+
+  const parent = domNode.parentNode;
+
+  if (patchObj.type === 'REMOVE') {
+    return parent && parent.removeChild(domNode);
+  }
+
+  if (patchObj.type === 'REPLACE') {
+    return parent && parent.replaceChild(render(patchObj.newNode), domNode);
+  }
+
+  if (patchObj.type === 'TEXT') {
+    return domNode.nodeValue = patchObj.value;
+  }
+
+  if (patchObj.type === 'UPDATE') {
+    if (patchObj.props) {
+      setProps(domNode, domNode._props || {}, patchObj.props);
+    }
+
+    patchObj.children.forEach((childPatch, i) => {
+      const child = domNode.childNodes[i];
+
+      if (!child && childPatch?.type === 'CREATE') {
+        domNode.appendChild(render(childPatch.newNode));
+      } else {
+        patch(child, childPatch);
+      }
+    });
+  }
+}
+
+/* ---------- HTML GENERATOR ---------- */
+
+function toHTML(vnode) {
+  if (vnode.type === 'TEXT') return vnode.props.value;
+
+  const attrs = Object.entries(vnode.props)
+    .filter(([k]) => !k.startsWith('on'))
+    .map(([k, v]) => ` ${k}="${v}"`)
+    .join('');
+
+  return `<${vnode.type}${attrs}>${vnode.children.map(toHTML).join('')}</${vnode.type}>`;
+}
+
+/* ---------- APP ---------- */
+
+let count = 0;
+let root, vdom;
+
+function view(n) {
+  return h('div', { class: 'app' },
+
+    // 🔥 SELLABLE INTRO
+    h('div', { class: 'intro' },
+      h('h1', {}, 'JustEnough.js'),
+      h('p', {}, 'A tiny, no-nonsense virtual DOM engine. No magic, no bloat — just enough to understand how modern frameworks really work.')
+    ),
+
+    h('p', {}, 'Count: ' + n),
+    h('button', { onClick: increment }, 'Increment'),
+    h('button', { onClick: regenerate }, 'Regenerate HTML'),
+    h('textarea', { disabled: true }, '')
+  );
+}
+
+function increment() {
+  count++;
+  const newVdom = view(count);
+  patch(root.firstChild, diff(vdom, newVdom));
+  vdom = newVdom;
+}
+
+function regenerate() {
+  root.querySelector('textarea').value = toHTML(vdom);
+}
+
+/* ---------- INIT ---------- */
+
+vdom = view(count);
+root = document.body.appendChild(document.createElement('div'));
+root.appendChild(render(vdom));
+</script>
+</body>
+</html>
