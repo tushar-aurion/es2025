@@ -238,7 +238,7 @@ function increment() {
 }
 
 function regenerate() {
-  root.querySelector('textarea').value = toHTML(vdom);
+  root.querySelector('textarea').textContent = toHTML(vdom);
 }
 
 /* ---------- INIT ---------- */
@@ -246,6 +246,76 @@ function regenerate() {
 vdom = view(count);
 root = document.body.appendChild(document.createElement('div'));
 root.appendChild(render(vdom));
+</script>
+<script>
+// ===============================
+// 🔍 MutationLens Debugger Tool.crx
+// ===============================
+
+const observer = new MutationObserver((mutationsList) => {
+  console.log('%c🧬 DOM Mutations detected', 'color: cyan; font-weight: bold;');
+
+  mutationsList.forEach((mutation, index) => {
+    let typeColor = '';
+    switch (mutation.type) {
+      case 'childList': typeColor = 'orange'; break;
+      case 'attributes': typeColor = 'blue'; break;
+      case 'characterData': typeColor = 'green'; break;
+      default: typeColor = 'white';
+    }
+
+    console.group(`%cMutation #${index + 1} (%c${mutation.type}%c)`, 'font-weight:bold', `color:${typeColor}`, 'color:inherit');
+
+    if (mutation.type === 'childList') {
+      console.log('%cAdded nodes:', 'color:orange', mutation.addedNodes);
+      console.log('%cRemoved nodes:', 'color:red', mutation.removedNodes);
+    }
+
+    if (mutation.type === 'attributes') {
+      console.log('%cAttribute changed:', 'color:blue', mutation.attributeName);
+      console.log('%cOld value:', 'color:gray', mutation.oldValue);
+      console.log('%cNew value:', 'color:cyan', mutation.target.getAttribute(mutation.attributeName));
+    }
+
+    if (mutation.type === 'characterData') {
+      console.log('%cText changed:', 'color:green', mutation.target.nodeValue);
+      console.log('%cOld text:', 'color:gray', mutation.oldValue);
+    }
+
+    console.groupEnd();
+  });
+});
+
+// ===============================
+// ⚙️ OBSERVER CONFIG
+// ===============================
+
+const observerConfig = {
+  childList: true,
+  attributes: true,
+  characterData: true,
+  subtree: true,
+  attributeOldValue: true,
+  characterDataOldValue: true
+};
+
+// Start observing after init
+setTimeout(() => {
+  observer.observe(document.body, observerConfig);
+  console.log('%c👀 MutationObserver started', 'color:lime; font-weight:bold');
+}, 0);
+
+// Optional stop function
+function stopObserving() {
+  observer.disconnect();
+  console.log('%c🛑 MutationObserver stopped', 'color:red; font-weight:bold');
+}
+
+// Optional snapshot
+function flushMutations() {
+  const pending = observer.takeRecords();
+  console.log('%c📦 Pending mutations:', 'color:magenta; font-weight:bold', pending);
+}
 </script>
 </body>
 </html>
